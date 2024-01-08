@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Shadow Map with OSM Buildings</title>
+    <style>
+        #map {
+            width: 100vw;
+            height: 100vh;
+        }
+
+        .leaflet-container {
+            touch-action: none;
+        }
+    </style>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.3/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.3/dist/leaflet.js"></script>
+    <script src="https://unpkg.com/leaflet-shadow-simulator/dist/leaflet-shadow-simulator.umd.min.js"></script>
+</head>
+
+<body>
+    <div id="map"></div>
+
+    <script>
+        const apiKey = 'eyJhbGciOiJIUzI1NiJ9.eyJlbWFpbCI6ImFkbWluMUBza29vcC5kaWdpdGFsIiwiY3JlYXRlZCI6MTcwNDY1NDIwNzE0MywiaWF0IjoxNzA0NjU0MjA3fQ.GEB9lUcyzGUATxEcgPgPMZUCaXrsYDWSP1y4xZC15WE'; // Replace with your actual API key
+        const mapboxApiKey = 'pk.eyJ1Ijoiam01NTIyIiwiYSI6ImNrZXE1aDF3ODBnYmQydXF4aTV2YXh0am8ifQ.xjp7KWFJBh5RG8hfWijfSA'; // Replace with your actual Mapbox API key
+
+        // Initialize the map
+        var map = L.map('map', {
+            center: [0, 0], // Temporary center
+            zoom: 21, // Increased zoom level for more detail
+            maxZoom: 22, // increase max zoom level
+            scrollWheelZoom: false, // Disable scroll zoom
+            dragging: false, // Disable dragging
+            touchZoom: false, // Disable touch zoom
+            doubleClickZoom: false, // Disable double click zoom
+            boxZoom: false, // Disable box zoom
+            keyboard: false, // Disable keyboard controls
+            zoomControl: false // Disable zoom control
+
+        });
+
+        // Add Mapbox tile layer with a higher maxZoom
+        L.tileLayer(`https://api.mapbox.com/styles/v1/mapbox/streets-v11/tiles/{z}/{x}/{y}?access_token=${mapboxApiKey}`, {
+            maxZoom: 22 // increase max zoom level
+        }).addTo(map);
+
+        // Function to load buildings from OpenStreetMap using overpass turbo
+        async function loadOSMBuildings(bounds) {
+            const query = `
+                [out:json][timeout:25];
+                (way["building"](${bounds.getSouth()},${bounds.getWest()},${bounds.getNorth()},${bounds.getEast()}););
+                out body;
+                >;
+                out skel qt;
+            `;
+            const response = await fetch('https://overpass-api.de/api/interpreter', {
+                method: 'POST',
+                body: query,
+                headers: { 'Content-Type': 'text/plain' }
+            });
+            const data = await response.json();
+            return data.elements.map(element => {
+                const geometry = element.type === "way"
+                    ? {
+                        type: "Polygon", coordinates: [element.nodes.map(nodeId => {
+                            const node = data.elements.find(e => e.id === nodeId);
+                            return [node.lon, node.lat];
+                        })]
+                    }
+                    : null;
+
+                return geometry ? {
+                    type: "Feature",
+                    properties: { height: element.tags['building:levels'] * 3 || 10 }, // Default to 10 meters if no height is specified
+                    geometry: geometry
+                } : null;
+            }).filter(feature => feature !== null);
+        }
+
+        // Get the user's current location and load buildings
+        map.locate({ setView: true, maxZoom: 22 });
+
+        map.on('locationfound', async function (e) {
+            L.marker(e.latlng).addTo(map);
+            const bounds = map.getBounds();
+            const buildings = await loadOSMBuildings(bounds);
+
+            const shadeMap = L.shadeMap({
+                date: new Date(),
+                color: '#01112f',
+                opacity: 0.7,
+                apiKey: apiKey,
+                terrainSource: {
+                    tileSize: 256,
+                    maxZoom: 22, // Adjusted to match the desired zoom level
+                    getSourceUrl: ({ x, y, z }) => {
+                        return `https://s3.amazonaws.com/elevation-tiles-prod/terrarium/${z}/${x}/${y}.png`;
+                    },
+                    getElevation: ({ r, g, b, a }) => {
+                        return (r * 256 + g + b / 256) - 32768;
+                    }
+                },
+                getFeatures: () => buildings
+            }).addTo(map);
+        });
+
+        map.on('locationerror', function () {
+            map.setView([51.505, -0.09], 20); // Coordinates for a default location
+        });
+    </script>
+</body>
+
+</html>

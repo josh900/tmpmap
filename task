@@ -1,0 +1,14 @@
+
+
+I've launched a fresh ubuntu 22 instance. I have a folder in /home/ubuntu/shademap which has an index.html and some javascript and css files.
+I want to use caddy as a reverse proxy to get my site online at my domain sm.skoop.digital with https. My domain is pointed to the public ip of my instance which is 52.33.184.219, and all ports are open.
+I am trying to serve my site on localhost as is a requirement of the library used in the site, but I want to access the site remotely. Thus I am considering using caddy to reverse proxy the locally hosted site served with python which should all start on boot
+What are all the steps I need to take.
+
+
+Please create a simple app using html, js, and css that opens a shadow map to the users device or browser location zoomed to a few blocks. 
+
+There shouldn't be too many controls or interactive ui. 
+The map should also be fixed after loading (not scrollable).
+Make it max zoomed in. 
+The users current location should have a pin or marking.
