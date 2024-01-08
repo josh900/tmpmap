@@ -6,11 +6,14 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Shadow Map with OSM Buildings</title>
     <style>
+        body {
+            margin: 0;
+            overflow: hidden; /* Hide scrollbars */
+        }
         #map {
             width: 100vw;
             height: 100vh;
         }
-
         .leaflet-container {
             touch-action: none;
         }
@@ -30,8 +33,8 @@
         // Initialize the map
         var map = L.map('map', {
             center: [0, 0], // Temporary center
-            zoom: 21, // Increased zoom level for more detail
-            maxZoom: 22, // increase max zoom level
+            zoom: 18, // Increased zoom level for more detail
+            maxZoom: 19, // increase max zoom level
             scrollWheelZoom: false, // Disable scroll zoom
             dragging: false, // Disable dragging
             touchZoom: false, // Disable touch zoom
@@ -44,7 +47,7 @@
 
         // Add Mapbox tile layer with a higher maxZoom
         L.tileLayer(`https://api.mapbox.com/styles/v1/mapbox/streets-v11/tiles/{z}/{x}/{y}?access_token=${mapboxApiKey}`, {
-            maxZoom: 22 // increase max zoom level
+            maxZoom: 19 // increase max zoom level
         }).addTo(map);
 
         // Function to load buildings from OpenStreetMap using overpass turbo
@@ -81,7 +84,7 @@
         }
 
         // Get the user's current location and load buildings
-        map.locate({ setView: true, maxZoom: 22 });
+        map.locate({ setView: true, maxZoom: 19 });
 
         map.on('locationfound', async function (e) {
             L.marker(e.latlng).addTo(map);
@@ -95,7 +98,7 @@
                 apiKey: apiKey,
                 terrainSource: {
                     tileSize: 256,
-                    maxZoom: 22, // Adjusted to match the desired zoom level
+                    maxZoom: 19, // Adjusted to match the desired zoom level
                     getSourceUrl: ({ x, y, z }) => {
                         return `https://s3.amazonaws.com/elevation-tiles-prod/terrarium/${z}/${x}/${y}.png`;
                     },

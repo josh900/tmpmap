@@ -1053,8 +1053,8 @@ Deliverable so far:
         // Initialize the map
         var map = L.map('map', {
             center: [0, 0], // Temporary center
-            zoom: 21, // Increased zoom level for more detail
-            maxZoom: 22, // increase max zoom level
+            zoom: 20, // Increased zoom level for more detail
+            maxZoom: 21, // increase max zoom level
             scrollWheelZoom: false, // Disable scroll zoom
             dragging: false, // Disable dragging
             touchZoom: false, // Disable touch zoom
@@ -1062,22 +1062,20 @@ Deliverable so far:
             boxZoom: false, // Disable box zoom
             keyboard: false, // Disable keyboard controls
             zoomControl: false // Disable zoom control
+
         });
 
         // Add Mapbox tile layer with a higher maxZoom
         L.tileLayer(`https://api.mapbox.com/styles/v1/mapbox/streets-v11/tiles/{z}/{x}/{y}?access_token=${mapboxApiKey}`, {
-            maxZoom: 22 // increase max zoom level
+            maxZoom: 21 // increase max zoom level
         }).addTo(map);
 
         // Function to load buildings from OpenStreetMap using overpass turbo
         async function loadOSMBuildings(bounds) {
             const query = `
-                 [out:json][timeout:25];
-        (
-            way["building"](${bounds.getSouth()},${bounds.getWest()},${bounds.getNorth()},${bounds.getEast()});
-            relation["building"](${bounds.getSouth()},${bounds.getWest()},${bounds.getNorth()},${bounds.getEast()});
-        );
-        out body;
+                [out:json][timeout:25];
+                (way["building"](${bounds.getSouth()},${bounds.getWest()},${bounds.getNorth()},${bounds.getEast()}););
+                out body;
                 >;
                 out skel qt;
             `;
@@ -1106,7 +1104,7 @@ Deliverable so far:
         }
 
         // Get the user's current location and load buildings
-        map.locate({ setView: true, maxZoom: 22 });
+        map.locate({ setView: true, maxZoom: 21 });
 
         map.on('locationfound', async function (e) {
             L.marker(e.latlng).addTo(map);
@@ -1120,7 +1118,7 @@ Deliverable so far:
                 apiKey: apiKey,
                 terrainSource: {
                     tileSize: 256,
-                    maxZoom: 22, // Adjusted to match the desired zoom level
+                    maxZoom: 21, // Adjusted to match the desired zoom level
                     getSourceUrl: ({ x, y, z }) => {
                         return `https://s3.amazonaws.com/elevation-tiles-prod/terrarium/${z}/${x}/${y}.png`;
                     },
