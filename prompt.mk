@@ -1029,13 +1029,29 @@ Deliverable so far:
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Shadow Map with OSM Buildings</title>
     <style>
+        body {
+            margin: 0;
+            overflow: hidden; /* Hide scrollbars */
+        }
         #map {
             width: 100vw;
             height: 100vh;
         }
-
         .leaflet-container {
             touch-action: none;
+        }
+        .time-control {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            z-index: 1000;
+            background: white;
+            padding: 10px;
+            border-radius: 4px;
+            box-shadow: 0 1px 5px rgba(0,0,0,0.65);
+        }
+        .time-control button {
+            margin-right: 5px;
         }
     </style>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.3/dist/leaflet.css" />
@@ -1045,32 +1061,70 @@ Deliverable so far:
 
 <body>
     <div id="map"></div>
+    <div class="time-control">
+        <button id="decrease-time">-15 min</button>
+        <button id="current-time">Current Time</button>
+        <button id="increase-time">+15 min</button>
+    </div>
 
     <script>
-        const apiKey = 'eyJhbGciOiJIUzI1NiJ9.eyJlbWFpbCI6ImFkbWluMUBza29vcC5kaWdpdGFsIiwiY3JlYXRlZCI6MTcwNDY1NDIwNzE0MywiaWF0IjoxNzA0NjU0MjA3fQ.GEB9lUcyzGUATxEcgPgPMZUCaXrsYDWSP1y4xZC15WE'; // Replace with your actual API key
-        const mapboxApiKey = 'pk.eyJ1Ijoiam01NTIyIiwiYSI6ImNrZXE1aDF3ODBnYmQydXF4aTV2YXh0am8ifQ.xjp7KWFJBh5RG8hfWijfSA'; // Replace with your actual Mapbox API key
+        const apiKey = 'eyJhbGciOiJIUzI1NiJ9.eyJlbWFpbCI6ImFkbWluMUBza29vcC5kaWdpdGFsIiwiY3JlYXRlZCI6MTcwNDY1NDIwNzE0MywiaWF0IjoxNzA0NjU0MjA3fQ.GEB9lUcyzGUATxEcgPgPMZUCaXrsYDWSP1y4xZC15WE';
+        const mapboxApiKey = 'pk.eyJ1Ijoiam01NTIyIiwiYSI6ImNrZXE1aDF3ODBnYmQydXF4aTV2YXh0am8ifQ.xjp7KWFJBh5RG8hfWijfSA';
 
-        // Initialize the map
         var map = L.map('map', {
-            center: [0, 0], // Temporary center
-            zoom: 20, // Increased zoom level for more detail
-            maxZoom: 21, // increase max zoom level
-            scrollWheelZoom: false, // Disable scroll zoom
-            dragging: false, // Disable dragging
-            touchZoom: false, // Disable touch zoom
-            doubleClickZoom: false, // Disable double click zoom
-            boxZoom: false, // Disable box zoom
-            keyboard: false, // Disable keyboard controls
-            zoomControl: false // Disable zoom control
-
+            center: [0, 0],
+            zoom: 18,
+            maxZoom: 19,
+            scrollWheelZoom: false,
+            dragging: false,
+            touchZoom: false,
+            doubleClickZoom: false,
+            boxZoom: false,
+            keyboard: false,
+            zoomControl: false
         });
 
-        // Add Mapbox tile layer with a higher maxZoom
         L.tileLayer(`https://api.mapbox.com/styles/v1/mapbox/streets-v11/tiles/{z}/{x}/{y}?access_token=${mapboxApiKey}`, {
-            maxZoom: 21 // increase max zoom level
+            maxZoom: 19
         }).addTo(map);
 
-        // Function to load buildings from OpenStreetMap using overpass turbo
+        let shadeMap;
+        let touchStartX;
+        let touchStartY;
+        let touchEndX;
+        let touchEndY;
+        let swipeStartTimestamp;
+
+        map.locate({ setView: true, maxZoom: 19 });
+
+        map.on('locationfound', async function (e) {
+            L.marker(e.latlng).addTo(map);
+            const bounds = map.getBounds();
+            const buildings = await loadOSMBuildings(bounds);
+
+            shadeMap = L.shadeMap({
+                date: new Date(),
+                color: '#01112f',
+                opacity: 0.7,
+                apiKey: apiKey,
+                terrainSource: {
+                    tileSize: 256,
+                    maxZoom: 19,
+                    getSourceUrl: ({ x, y, z }) => {
+                        return `https://s3.amazonaws.com/elevation-tiles-prod/terrarium/${z}/${x}/${y}.png`;
+                    },
+                    getElevation: ({ r, g, b, a }) => {
+                        return (r * 256 + g + b / 256) - 32768;
+                    }
+                },
+                getFeatures: () => buildings
+            }).addTo(map);
+        });
+
+        map.on('locationerror', function () {
+            map.setView([51.505, -0.09], 20);
+        });
+
         async function loadOSMBuildings(bounds) {
             const query = `
                 [out:json][timeout:25];
@@ -1097,48 +1151,62 @@ Deliverable so far:
 
                 return geometry ? {
                     type: "Feature",
-                    properties: { height: element.tags['building:levels'] * 3 || 10 }, // Default to 10 meters if no height is specified
+                    properties: { height: element.tags['building:levels'] * 3 || 10 },
                     geometry: geometry
                 } : null;
             }).filter(feature => feature !== null);
         }
 
-        // Get the user's current location and load buildings
-        map.locate({ setView: true, maxZoom: 21 });
-
-        map.on('locationfound', async function (e) {
-            L.marker(e.latlng).addTo(map);
-            const bounds = map.getBounds();
-            const buildings = await loadOSMBuildings(bounds);
-
-            const shadeMap = L.shadeMap({
-                date: new Date(),
-                color: '#01112f',
-                opacity: 0.7,
-                apiKey: apiKey,
-                terrainSource: {
-                    tileSize: 256,
-                    maxZoom: 21, // Adjusted to match the desired zoom level
-                    getSourceUrl: ({ x, y, z }) => {
-                        return `https://s3.amazonaws.com/elevation-tiles-prod/terrarium/${z}/${x}/${y}.png`;
-                    },
-                    getElevation: ({ r, g, b, a }) => {
-                        return (r * 256 + g + b / 256) - 32768;
-                    }
-                },
-                getFeatures: () => buildings
-            }).addTo(map);
+        // Time control buttons functionality
+        document.getElementById('decrease-time').addEventListener('click', function () {
+            var currentDate = shadeMap.options.date;
+            shadeMap.setDate(new Date(currentDate.getTime() - 15 * 60000));
         });
 
-        map.on('locationerror', function () {
-            map.setView([51.505, -0.09], 20); // Coordinates for a default location
+        document.getElementById('increase-time').addEventListener('click', function () {
+            var currentDate = shadeMap.options.date;
+            shadeMap.setDate(new Date(currentDate.getTime() + 15 * 60000));
+        });
+
+        document.getElementById('current-time').addEventListener('click', function () {
+            shadeMap.setDate(new Date());
+        });
+
+        // Detect touch gestures
+        map.getContainer().addEventListener('touchstart', function (e) {
+            touchStartX = e.touches[0].clientX;
+            swipeStartTimestamp = shadeMap.options.date.getTime(); // Record the timestamp at the start of the swipe
+        });
+
+        map.getContainer().addEventListener('touchmove', function (e) {
+            touchEndX = e.changedTouches[0].clientX;
+
+            if (touchStartX && touchEndX) {
+                // Calculate the distance swiped
+                const distanceX = touchStartX - touchEndX;
+
+                // Only consider horizontal swipes
+                const minutesToAdjust = distanceX / 4; // Adjust the time by 1 minute for every 10 pixels swiped
+                const adjustedTimestamp = swipeStartTimestamp - minutesToAdjust * 60000;
+
+                shadeMap.setDate(new Date(adjustedTimestamp));
+            }
+        });
+
+        map.getContainer().addEventListener('touchend', function () {
+            // Reset to current time after the user releases their finger
+            shadeMap.setDate(new Date());
+
+            // Reset touch start and end coordinates
+            touchStartX = null;
+            touchEndX = null;
         });
     </script>
 </body>
 
 </html>
 
+
 ```
 
-This code works well, but can you remove the plus minus zoom buttons, and the zoom control in the top left corner? 
-Also there are some buildings missing.
+This code works well, however can you increse the speed at which the time of day changes per the swiping action?
